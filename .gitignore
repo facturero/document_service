@@ -1,0 +1,26 @@
+# dependencias
+node_modules/
+
+# build
+dist/
+
+# entorno
+.env
+.env.local
+*.local
+
+# claves
+*.pem
+certs/
+
+# almacenamiento local (no commitear archivos subidos en dev)
+uploads/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / SO
+.DS_Store
+.idea/
+.vscode/

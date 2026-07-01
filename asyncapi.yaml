@@ -1,0 +1,400 @@
+asyncapi: "2.6.0"
+info:
+  title: document-service — Eventos (AsyncAPI)
+  description: |
+    Esquema de eventos de dominio del servicio de documentos.
+
+    El servicio publica eventos cuando los archivos cambian de estado y consume
+    eventos de otros servicios para mantener la consistencia (limpieza de archivos
+    huérfanos cuando un recurso dueño se elimina).
+
+    Todos los eventos viajan por **RabbitMQ** con el patrón **Outbox**:
+    el servicio escribe el evento en la tabla `outbox` dentro de la misma
+    transacción de base de datos, y un publisher asíncrono lo envía al exchange.
+  version: "1.0.0"
+  contact:
+    name: CRM Team
+
+servers:
+  production:
+    url: amqps://rabbitmq.prod.example.com:5671
+    protocol: amqp
+    description: RabbitMQ de producción (con TLS)
+    security:
+      - plain: []
+
+channels:
+  document.file.attached:
+    description: "Un archivo fue subido, escaneado y vinculado exitosamente a un recurso."
+    publish:
+      summary: Archivo vinculado a recurso
+      operationId: onFileAttached
+      message:
+        $ref: "#/components/messages/FileAttached"
+
+  document.file.removed:
+    description: "Un archivo fue eliminado (soft-delete + objeto físico eliminado)."
+    publish:
+      summary: Archivo eliminado
+      operationId: onFileRemoved
+      message:
+        $ref: "#/components/messages/FileRemoved"
+
+  document.file.rejected:
+    description: "El scan de antivirus detectó malware en el archivo. El objeto físico ya fue eliminado de S3."
+    publish:
+      summary: Archivo rechazado por antivirus
+      operationId: onFileRejected
+      message:
+        $ref: "#/components/messages/FileRejected"
+
+  document.file.variants_ready:
+    description: "Las variantes de imagen (thumbnail, webp) fueron generadas y subidas a S3."
+    publish:
+      summary: Variantes de imagen listas
+      operationId: onFileVariantsReady
+      message:
+        $ref: "#/components/messages/FileVariantsReady"
+
+  customer.customer.disabled:
+    description: "Un cliente fue deshabilitado. document-service debe marcar sus archivos como huérfanos."
+    subscribe:
+      summary: Cliente deshabilitado
+      operationId: onCustomerDisabled
+      message:
+        $ref: "#/components/messages/CustomerDisabled"
+
+  product.product.disabled:
+    description: "Un producto fue deshabilitado. document-service debe marcar sus archivos como huérfanos."
+    subscribe:
+      summary: Producto deshabilitado
+      operationId: onProductDisabled
+      message:
+        $ref: "#/components/messages/ProductDisabled"
+
+  billing.invoice.voided:
+    description: "Una factura fue anulada. document-service debe conservar los archivos legales (no eliminar), pero puede notificar."
+    subscribe:
+      summary: Factura anulada
+      operationId: onInvoiceVoided
+      message:
+        $ref: "#/components/messages/InvoiceVoided"
+
+components:
+  messages:
+    FileAttached:
+      name: FileAttached
+      title: Archivo vinculado
+      summary: Un archivo fue escaneado y vinculado a un recurso
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId:
+            type: string
+            format: uuid
+            description: ID único del evento
+            example: "evt-001-abc-123"
+          eventVersion:
+            type: integer
+            description: Versión del schema del evento
+            example: 1
+          eventTimestamp:
+            type: string
+            format: date-time
+            description: Timestamp ISO 8601 de publicación
+            example: "2026-07-01T12:05:00Z"
+          eventType:
+            type: string
+            const: document.file.attached
+            example: "document.file.attached"
+          data:
+            type: object
+            required:
+              - fileId
+              - resourceType
+              - resourceId
+              - category
+              - originalName
+              - mimeType
+              - size
+              - checksum
+              - uploadedBy
+              - uploadedAt
+            properties:
+              fileId:
+                type: string
+                format: uuid
+                description: ID del archivo
+                example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+              resourceType:
+                type: string
+                description: Tipo del recurso dueño
+                example: "customer"
+              resourceId:
+                type: string
+                description: ID del recurso dueño
+                example: "c123e4567-e89b-12d3-a456-426614174000"
+              category:
+                type: string
+                description: Categoría del archivo (lowercase)
+                example: "logo"
+              originalName:
+                type: string
+                description: Nombre original del archivo
+                example: "logo-empresa.png"
+              mimeType:
+                type: string
+                description: Tipo MIME
+                example: "image/png"
+              size:
+                type: integer
+                format: int64
+                description: Tamaño en bytes
+                example: 204800
+              checksum:
+                type: string
+                description: "SHA-256 del archivo (hex)"
+                example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              uploadedBy:
+                type: string
+                description: ID del usuario que subió el archivo
+                example: "user-abc-123"
+              uploadedAt:
+                type: string
+                format: date-time
+                description: Momento de confirmación del upload
+                example: "2026-07-01T12:05:00Z"
+
+    FileRemoved:
+      name: FileRemoved
+      title: Archivo eliminado
+      summary: Un archivo fue eliminado (soft-delete)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          eventVersion:
+            type: integer
+            example: 1
+          eventTimestamp:
+            type: string
+            format: date-time
+          eventType:
+            type: string
+            const: document.file.removed
+            example: "document.file.removed"
+          data:
+            type: object
+            required:
+              - fileId
+              - resourceType
+              - resourceId
+              - removedBy
+              - removedAt
+            properties:
+              fileId: { type: string, format: uuid }
+              resourceType: { type: string }
+              resourceId: { type: string }
+              removedBy: { type: string, description: "ID del usuario que eliminó" }
+              removedAt: { type: string, format: date-time }
+
+    FileRejected:
+      name: FileRejected
+      title: Archivo rechazado por antivirus
+      summary: El scan de ClamAV detectó malware y el archivo fue eliminado de S3
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId: { type: string, format: uuid }
+          eventVersion: { type: integer, example: 1 }
+          eventTimestamp: { type: string, format: date-time }
+          eventType:
+            type: string
+            const: document.file.rejected
+            example: "document.file.rejected"
+          data:
+            type: object
+            required:
+              - fileId
+              - resourceType
+              - resourceId
+              - originalName
+              - virusName
+              - rejectedAt
+            properties:
+              fileId: { type: string, format: uuid }
+              resourceType: { type: string }
+              resourceId: { type: string }
+              originalName: { type: string }
+              virusName: { type: string, description: "Nombre del virus detectado", example: "Win.Malware.Generic-9876543" }
+              rejectedAt: { type: string, format: date-time }
+
+    FileVariantsReady:
+      name: FileVariantsReady
+      title: Variantes de imagen listas
+      summary: Las variantes de imagen fueron generadas y subidas a S3
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId: { type: string, format: uuid }
+          eventVersion: { type: integer, example: 1 }
+          eventTimestamp: { type: string, format: date-time }
+          eventType:
+            type: string
+            const: document.file.variants_ready
+            example: "document.file.variants_ready"
+          data:
+            type: object
+            required:
+              - fileId
+              - variants
+            properties:
+              fileId: { type: string, format: uuid }
+              variants:
+                type: array
+                description: Lista de variantes generadas
+                items:
+                  type: object
+                  required:
+                    - suffix
+                    - key
+                    - width
+                    - height
+                    - size
+                  properties:
+                    suffix:
+                      type: string
+                      description: Sufijo identificador de la variante
+                      example: "thumbnail"
+                    key:
+                      type: string
+                      description: Storage key de la variante en S3
+                      example: "customer/abc/thumb_123.jpg"
+                    width: { type: integer, example: 150 }
+                    height: { type: integer, example: 150 }
+                    size: { type: integer, format: int64, description: "Tamaño en bytes", example: 12345 }
+
+    CustomerDisabled:
+      name: CustomerDisabled
+      title: Cliente deshabilitado
+      summary: Un cliente fue deshabilitado en customer-service
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId: { type: string, format: uuid }
+          eventVersion: { type: integer, example: 1 }
+          eventTimestamp: { type: string, format: date-time }
+          eventType:
+            type: string
+            const: customer.customer.disabled
+            example: "customer.customer.disabled"
+          data:
+            type: object
+            required:
+              - customerId
+            properties:
+              customerId: { type: string, format: uuid, description: "ID del cliente deshabilitado" }
+
+    ProductDisabled:
+      name: ProductDisabled
+      title: Producto deshabilitado
+      summary: Un producto fue deshabilitado en product-service
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId: { type: string, format: uuid }
+          eventVersion: { type: integer, example: 1 }
+          eventTimestamp: { type: string, format: date-time }
+          eventType:
+            type: string
+            const: product.product.disabled
+            example: "product.product.disabled"
+          data:
+            type: object
+            required:
+              - productId
+            properties:
+              productId: { type: string, format: uuid }
+
+    InvoiceVoided:
+      name: InvoiceVoided
+      title: Factura anulada
+      summary: Una factura fue anulada en billing-service
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - eventId
+          - eventVersion
+          - eventTimestamp
+          - eventType
+          - data
+        properties:
+          eventId: { type: string, format: uuid }
+          eventVersion: { type: integer, example: 1 }
+          eventTimestamp: { type: string, format: date-time }
+          eventType:
+            type: string
+            const: billing.invoice.voided
+            example: "billing.invoice.voided"
+          data:
+            type: object
+            required:
+              - invoiceId
+              - organizationId
+            properties:
+              invoiceId: { type: string, format: uuid }
+              organizationId: { type: string, format: uuid }
+              voidReason:
+                type: string
+                description: Motivo de la anulación
+                example: "Cancelación por solicitud del cliente"
+
+  securitySchemes:
+    plain:
+      type: userPassword
+      description: Conexión AMQP con usuario/contraseña estándar

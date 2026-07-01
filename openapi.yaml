@@ -1,0 +1,483 @@
+openapi: "3.1.0"
+info:
+  title: document-service — API REST
+  description: |
+    API de gestión y almacenamiento de archivos del ecosistema CRM.
+
+    Responsabilidad: administrar metadatos de archivos y delegar el almacenamiento físico
+    a S3 / MinIO (o disco local en desarrollo). No tiene lógica de negocio sobre el contenido.
+
+    Flujo principal (Direct-to-S3):
+      1. Cliente solicita URL pre-firmada → `POST /files/presigned`
+      2. Cliente sube el archivo directamente a S3
+      3. Cliente confirma la subida → `PATCH /files/{id}/confirm`
+      4. Un worker asíncrono escanea con ClamAV y actualiza el estado
+  version: "1.0.0"
+  contact:
+    name: CRM Team
+
+servers:
+  - url: http://localhost:3003
+    description: Desarrollo local
+  - url: https://api.example.com/documents
+    description: Producción (vía API Gateway)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      tags: [Salud]
+      responses:
+        "200":
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "ok" }
+
+  /files/presigned:
+    post:
+      summary: Solicitar URL pre-firmada para subir archivo
+      description: |
+        Crea un registro `pending` y devuelve una URL pre-firmada para que el cliente
+        suba el archivo directamente a S3 / MinIO.
+
+        El archivo físico **no pasa por el servicio**. El estado se actualiza
+        a `active` cuando el worker de antivirus confirma que está limpio.
+      operationId: createPresignedUpload
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePresignedUploadRequest"
+      responses:
+        "201":
+          description: URL pre-firmada generada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignedUploadResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/FileTooLarge"
+
+  /files:
+    get:
+      summary: Listar archivos de un recurso
+      description: |
+        Retorna los metadatos de todos los archivos asociados a un recurso,
+        filtrados opcionalmente por categoría.
+      operationId: listFiles
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resourceType
+          in: query
+          required: true
+          schema: { type: string, maxLength: 100, example: "customer" }
+          description: Tipo del recurso dueño
+        - name: resourceId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 100, example: "c123e4567-e89b-12d3-a456-426614174000" }
+          description: ID del recurso dueño
+        - name: category
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100, example: "logo" }
+          description: Filtrar por categoría (opcional)
+      responses:
+        "200":
+          description: Lista de archivos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /files/{id}:
+    get:
+      summary: Obtener metadatos de un archivo
+      operationId: getFile
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      responses:
+        "200":
+          description: Metadatos del archivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/FileNotFound"
+
+    patch:
+      summary: Actualizar metadatos de un archivo
+      operationId: updateFileMetadata
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMetadataRequest"
+      responses:
+        "200":
+          description: Metadatos actualizados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/FileNotFound"
+
+    delete:
+      summary: Eliminar un archivo
+      description: |
+        Marca el archivo como `deleted` (soft-delete) y elimina el objeto físico
+        del storage.
+      operationId: deleteFile
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Archivo eliminado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/FileNotFound"
+
+  /files/{id}/confirm:
+    patch:
+      summary: Confirmar subida de archivo
+      description: |
+        El cliente llama a este endpoint después de subir el archivo a S3
+        con la URL pre-firmada. Actualiza el checksum y cambia el estado
+        a `confirmed` para que el worker de antivirus lo procese.
+
+        Si el archivo ya no está `pending`, la operación es un no-op
+        y retorna el estado actual.
+      operationId: confirmFileUpload
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmUploadRequest"
+      responses:
+        "200":
+          description: Archivo confirmado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/FileNotFound"
+
+  /files/{id}/download:
+    get:
+      summary: Descargar archivo
+      description: |
+        Genera una URL pre-firmada de descarga (válida por 1 hora) y redirige
+        al cliente (HTTP 302).
+
+        Los archivos en estado `quarantined` no pueden descargarse.
+      operationId: downloadFile
+      tags: [Archivos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "302":
+          description: Redirección a URL de descarga pre-firmada
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: URL pre-firmada de S3 / MinIO
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/FileNotFound"
+        "423":
+          $ref: "#/components/responses/FileQuarantined"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT verificado por API Gateway. El gateway inyecta `X-User-Id` y `X-User-Email`.
+
+  schemas:
+    CreatePresignedUploadRequest:
+      type: object
+      required: [resourceType, resourceId, category, originalName, mimeType, size]
+      properties:
+        resourceType:
+          type: string
+          maxLength: 100
+          description: Tipo del recurso dueño (ej. customer, invoice, product)
+          example: "customer"
+        resourceId:
+          type: string
+          maxLength: 100
+          description: ID del recurso dueño
+          example: "c123e4567-e89b-12d3-a456-426614174000"
+        category:
+          type: string
+          maxLength: 100
+          description: "Categoría del archivo. Se normaliza a lowercase. Ej: logo, comprobante, foto"
+          example: "logo"
+        originalName:
+          type: string
+          maxLength: 255
+          description: Nombre original del archivo (solo metadato)
+          example: "logo-empresa.png"
+        mimeType:
+          type: string
+          maxLength: 255
+          description: Tipo MIME del archivo
+          example: "image/png"
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Tamaño en bytes
+          example: 204800
+        description:
+          type: string
+          maxLength: 500
+          description: Descripción opcional del archivo
+          example: "Logo oficial de la empresa"
+        expiresAt:
+          type: string
+          format: date-time
+          description: "Fecha de expiración (política de retención). Opcional."
+          example: "2027-06-30T23:59:59Z"
+
+    PresignedUploadResponse:
+      type: object
+      required: [fileId, presignedUrl, expiresIn]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+          description: ID del registro de archivo (estado pending)
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        presignedUrl:
+          type: string
+          format: uri
+          description: URL pre-firmada para subir el archivo vía PUT
+          example: "https://minio.example.com/cmr-documents/customer/c123.../f47a...-logo.png?X-Amz-Algorithm=..."
+        fields:
+          type: object
+          description: "Campos adicionales para POST de formulario (solo local-storage)"
+          example: { key: "customer/.../f47a...-logo.png", token: "abc123" }
+        expiresIn:
+          type: integer
+          description: Tiempo de expiración de la URL en segundos
+          example: 3600
+
+    ConfirmUploadRequest:
+      type: object
+      required: [checksum]
+      properties:
+        checksum:
+          type: string
+          maxLength: 128
+          description: "SHA-256 del archivo (hex). Se almacena para verificación de integridad."
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+    UpdateMetadataRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 500
+          description: Nueva descripción del archivo
+          example: "Logo actualizado 2026"
+        category:
+          type: string
+          maxLength: 100
+          description: Nueva categoría
+          example: "logo"
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+          description: "Nueva fecha de expiración. Enviar null para eliminar."
+          example: "2027-12-31T23:59:59Z"
+
+    FileResponse:
+      type: object
+      required:
+        - id
+        - resourceType
+        - resourceId
+        - category
+        - originalName
+        - mimeType
+        - size
+        - checksum
+        - status
+        - uploadedBy
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid, example: "f47ac10b-58cc-4372-a567-0e02b2c3d479" }
+        resourceType: { type: string, example: "customer" }
+        resourceId: { type: string, example: "c123e4567-e89b-12d3-a456-426614174000" }
+        category: { type: string, example: "logo" }
+        originalName: { type: string, example: "logo-empresa.png" }
+        mimeType: { type: string, example: "image/png" }
+        size: { type: integer, format: int64, example: 204800 }
+        checksum: { type: string, example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+        status:
+          type: string
+          enum: [pending, confirmed, rejected, quarantined, deleted]
+          description: |
+            - `pending`: archivo creado, esperando confirmación de subida
+            - `confirmed`: subido a S3, esperando scan de antivirus
+            - `active`: escaneado y limpio (alías: `confirmed` post-scan)
+            - `rejected`: malware detectado
+            - `quarantined`: en cuarentena por scan
+            - `deleted`: eliminado (soft-delete)
+          example: "confirmed"
+        description: { type: ["string", "null"], example: "Logo oficial de la empresa" }
+        expiresAt: { type: ["string", "null"], format: date-time, example: "2027-06-30T23:59:59Z" }
+        parentId: { type: ["string", "null"], format: uuid, description: "ID del archivo anterior (versionado)" }
+        uploadedBy: { type: string, example: "user-abc-123" }
+        createdAt: { type: string, format: date-time, example: "2026-07-01T12:00:00Z" }
+        updatedAt: { type: string, format: date-time, example: "2026-07-01T12:05:00Z" }
+
+    FileListResponse:
+      type: object
+      required: [files, total]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileResponse"
+        total:
+          type: integer
+          description: Número total de archivos (sin paginación)
+          example: 3
+
+  responses:
+    ValidationError:
+      description: Error de validación
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string, example: "VALIDATION_ERROR" }
+              message: { type: string, example: "Datos inválidos." }
+              details:
+                type: array
+                items:
+                  type: object
+    Unauthorized:
+      description: No autenticado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string, example: "UNAUTHORIZED" }
+              message: { type: string, example: "No autenticado." }
+    FileNotFound:
+      description: Archivo no encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string, example: "FILE_NOT_FOUND" }
+              message: { type: string, example: "Archivo no encontrado: f47a..." }
+    FileTooLarge:
+      description: Archivo excede el tamaño máximo
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string, example: "FILE_TOO_LARGE" }
+              message: { type: string, example: "Archivo demasiado grande: 200MB (máximo 100MB)" }
+    FileQuarantined:
+      description: Archivo en cuarentena (no descargable)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string, example: "FILE_QUARANTINED" }
+              message: { type: string, example: "El archivo está en cuarentena." }
