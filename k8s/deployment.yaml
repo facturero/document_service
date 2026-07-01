@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: document-service
+  labels:
+    app: document-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: document-service
+  template:
+    metadata:
+      labels:
+        app: document-service
+    spec:
+      containers:
+        - name: document-service
+          image: ghcr.io/tu-org/document-service:latest
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3003"
+            - name: DB_HOST
+              value: "mysql-service"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: password
+            - name: DB_NAME
+              value: "document_db"
+            - name: STORAGE_DRIVER
+              value: "local"
+            - name: LOCAL_STORAGE_PATH
+              value: "/data/uploads"
+            - name: CORS_ORIGIN
+              value: "*"
+          ports:
+            - containerPort: 3003
+          volumeMounts:
+            - name: storage
+              mountPath: /data/uploads
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: document-storage-pvc
