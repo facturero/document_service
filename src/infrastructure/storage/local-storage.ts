@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, unlink, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { PresignedUrlInfo, StoragePort } from '../../application/ports';
@@ -24,7 +24,7 @@ export class LocalStorageAdapter implements StoragePort {
     };
   }
 
-  async generatePresignedDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
+  async generatePresignedDownloadUrl(key: string, _expiresIn = 3600): Promise<string> {
     const filePath = join(this.basePath, key);
     if (!existsSync(filePath)) {
       throw new Error(`Archivo no encontrado en almacenamiento local: ${key}`);

@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   const app = createApp({
     useCases: {
       createPresigned: new CreatePresignedUploadUseCase(uow, storage, config.S3_BUCKET),
-      confirmUpload: new ConfirmFileUploadUseCase(uow, storage),
+      confirmUpload: new ConfirmFileUploadUseCase(uow),
       getFile: new GetFileUseCase(repos),
       getFileDownload: new GetFileDownloadUseCase(repos, storage),
       listFiles: new ListFilesUseCase(repos),

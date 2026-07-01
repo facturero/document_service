@@ -1,12 +1,11 @@
 import { FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
-import { StoragePort, UnitOfWork } from '../ports';
+import { UnitOfWork } from '../ports';
 import { ConfirmFileUploadInput, FileResponse } from '../dtos';
 
 export class ConfirmFileUploadUseCase {
   constructor(
     private readonly uow: UnitOfWork,
-    private readonly storage: StoragePort,
   ) {}
 
   async execute(input: ConfirmFileUploadInput): Promise<FileResponse> {

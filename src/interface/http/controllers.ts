@@ -7,8 +7,17 @@ import { ListFilesUseCase } from '../../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../../application/use-cases/delete-file';
 import { AuthVariables } from './middlewares';
+import { ValidationError } from '../../domain/errors';
 
 type Auth = { Variables: AuthVariables };
+
+function requireParam(c: Context, name: string): string {
+  const value = c.req.param(name);
+  if (value === undefined) {
+    throw new ValidationError(`Parámetro requerido: ${name}`);
+  }
+  return value;
+}
 
 export function createPresignedController(useCase: CreatePresignedUploadUseCase) {
   return async (c: Context) => {
@@ -21,7 +30,7 @@ export function createPresignedController(useCase: CreatePresignedUploadUseCase)
 
 export function confirmUploadController(useCase: ConfirmFileUploadUseCase) {
   return async (c: Context) => {
-    const fileId = c.req.param('id');
+    const fileId = requireParam(c, 'id');
     const body = c.req.valid('json' as never) as any;
     const result = await useCase.execute({ fileId, checksum: body.checksum });
     return c.json(result, 200);
@@ -30,7 +39,7 @@ export function confirmUploadController(useCase: ConfirmFileUploadUseCase) {
 
 export function getFileController(useCase: GetFileUseCase) {
   return async (c: Context) => {
-    const fileId = c.req.param('id');
+    const fileId = requireParam(c, 'id');
     const result = await useCase.execute(fileId);
     return c.json(result, 200);
   };
@@ -38,7 +47,7 @@ export function getFileController(useCase: GetFileUseCase) {
 
 export function getFileDownloadController(useCase: GetFileDownloadUseCase) {
   return async (c: Context) => {
-    const fileId = c.req.param('id');
+    const fileId = requireParam(c, 'id');
     const result = await useCase.execute(fileId);
     return c.redirect(result.url, 302);
   };
@@ -54,7 +63,7 @@ export function listFilesController(useCase: ListFilesUseCase) {
 
 export function updateFileMetadataController(useCase: UpdateFileMetadataUseCase) {
   return async (c: Context) => {
-    const fileId = c.req.param('id');
+    const fileId = requireParam(c, 'id');
     const body = c.req.valid('json' as never) as any;
     const result = await useCase.execute(fileId, body);
     return c.json(result, 200);
@@ -63,7 +72,7 @@ export function updateFileMetadataController(useCase: UpdateFileMetadataUseCase)
 
 export function deleteFileController(useCase: DeleteFileUseCase) {
   return async (c: Context) => {
-    const fileId = c.req.param('id');
+    const fileId = requireParam(c, 'id');
     await useCase.execute(fileId);
     return c.body(null, 204);
   };
