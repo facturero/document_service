@@ -16,36 +16,67 @@ spec:
     spec:
       containers:
         - name: document-service
-          image: ghcr.io/tu-org/document-service:latest
+          image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          ports:
+            - containerPort: 3003
           env:
             - name: NODE_ENV
               value: "production"
             - name: PORT
               value: "3003"
             - name: DB_HOST
-              value: "mysql-service"
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: host
             - name: DB_PORT
-              value: "3306"
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: port
             - name: DB_USER
-              value: "root"
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: user
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secret
+                  name: document-db
                   key: password
             - name: DB_NAME
-              value: "document_db"
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: name
             - name: STORAGE_DRIVER
               value: "local"
             - name: LOCAL_STORAGE_PATH
               value: "/data/uploads"
             - name: CORS_ORIGIN
               value: "*"
-          ports:
-            - containerPort: 3003
           volumeMounts:
             - name: storage
               mountPath: /data/uploads
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: storage
           persistentVolumeClaim:
