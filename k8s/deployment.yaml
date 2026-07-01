@@ -79,5 +79,7 @@ spec:
             periodSeconds: 10
       volumes:
         - name: storage
-          persistentVolumeClaim:
-            claimName: document-storage-pvc
+          emptyDir: {}
+          # Si tenés PVC funcional, reemplazá emptyDir por:
+          # persistentVolumeClaim:
+          #   claimName: document-storage-pvc

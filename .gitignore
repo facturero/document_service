@@ -9,6 +9,10 @@ dist/
 .env.local
 *.local
 
+# secretos planos (los cifrados .enc sí se commitean)
+config/*.env
+!config/*.enc
+
 # claves
 *.pem
 certs/
