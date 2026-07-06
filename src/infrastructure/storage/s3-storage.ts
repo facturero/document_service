@@ -12,10 +12,12 @@ import { PresignedUrlInfo, StoragePort } from '../../application/ports';
 
 export class S3StorageAdapter implements StoragePort {
   private readonly client: S3Client;
+  private readonly signingClient: S3Client;
   private readonly bucket: string;
 
   constructor(config: {
     endpoint: string;
+    publicEndpoint: string;
     region: string;
     accessKeyId: string;
     secretAccessKey: string;
@@ -39,6 +41,12 @@ export class S3StorageAdapter implements StoragePort {
     }
 
     this.client = new S3Client(clientConfig);
+
+    const signingConfig: S3ClientConfig = { ...clientConfig };
+    if (config.publicEndpoint) {
+      signingConfig.endpoint = config.publicEndpoint;
+    }
+    this.signingClient = new S3Client(signingConfig);
     this.bucket = config.bucket;
   }
 
@@ -50,7 +58,7 @@ export class S3StorageAdapter implements StoragePort {
       ContentLength: contentLength,
     });
 
-    const url = await getSignedUrl(this.client, command, { expiresIn: 3600 });
+    const url = await getSignedUrl(this.signingClient, command, { expiresIn: 3600 });
 
     return {
       url,
@@ -64,7 +72,7 @@ export class S3StorageAdapter implements StoragePort {
       Key: key,
     });
 
-    return getSignedUrl(this.client, command, { expiresIn });
+    return getSignedUrl(this.signingClient, command, { expiresIn });
   }
 
   async getObject(key: string): Promise<Buffer> {

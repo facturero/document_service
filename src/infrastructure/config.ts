@@ -15,6 +15,7 @@ const schema = z.object({
   LOCAL_STORAGE_PATH: z.string().default('./uploads'),
 
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
+  S3_PUBLIC_ENDPOINT: z.string().default(''),
   S3_REGION: z.string().default('us-east-1'),
   S3_BUCKET: z.string().default('cmr-documents'),
   S3_ACCESS_KEY_ID: z.string().default(''),
@@ -54,6 +55,7 @@ export interface AppConfig {
   STORAGE_DRIVER: 'local' | 's3';
   LOCAL_STORAGE_PATH: string;
   S3_ENDPOINT: string;
+  S3_PUBLIC_ENDPOINT: string;
   S3_REGION: string;
   S3_BUCKET: string;
   S3_ACCESS_KEY_ID: string;
@@ -76,6 +78,7 @@ export const config: AppConfig = {
   STORAGE_DRIVER: env.STORAGE_DRIVER,
   LOCAL_STORAGE_PATH: env.LOCAL_STORAGE_PATH,
   S3_ENDPOINT: env.S3_ENDPOINT,
+  S3_PUBLIC_ENDPOINT: env.S3_PUBLIC_ENDPOINT,
   S3_REGION: env.S3_REGION,
   S3_BUCKET: env.S3_BUCKET,
   S3_ACCESS_KEY_ID: env.S3_ACCESS_KEY_ID,

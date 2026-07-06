@@ -23,6 +23,7 @@ async function main(): Promise<void> {
   const storage = config.STORAGE_DRIVER === 's3'
     ? new S3StorageAdapter({
         endpoint: config.S3_ENDPOINT,
+        publicEndpoint: config.S3_PUBLIC_ENDPOINT || config.S3_ENDPOINT,
         region: config.S3_REGION,
         accessKeyId: config.S3_ACCESS_KEY_ID,
         secretAccessKey: config.S3_SECRET_ACCESS_KEY,
