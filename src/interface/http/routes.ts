@@ -51,7 +51,7 @@ export function documentRoutes(deps: AppDependencies): Hono {
   r.post('/files/presigned', authMiddleware(), validateJson(createPresignedSchema), createPresignedController(useCases.createPresigned));
   r.get('/files', authMiddleware(), validateQuery(listFilesQuerySchema), listFilesController(useCases.listFiles));
   r.get('/files/:id', authMiddleware(), getFileController(useCases.getFile));
-  r.get('/files/:id/download', authMiddleware(), getFileDownloadController(useCases.getFileDownload));
+  r.get('/files/:id/download', getFileDownloadController(useCases.getFileDownload));
   r.patch('/files/:id/confirm', authMiddleware(), validateJson(confirmUploadSchema), confirmUploadController(useCases.confirmUpload));
   r.patch('/files/:id', authMiddleware(), validateJson(updateMetadataSchema), updateFileMetadataController(useCases.updateMetadata));
   r.delete('/files/:id', authMiddleware(), deleteFileController(useCases.deleteFile));
