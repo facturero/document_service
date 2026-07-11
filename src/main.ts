@@ -16,6 +16,7 @@ import { createApp } from './interface/http/app';
 
 async function main(): Promise<void> {
   await sequelize.authenticate();
+  await sequelize.sync();
 
   const repos = buildRepositories();
   const uow = new SequelizeUnitOfWork();
