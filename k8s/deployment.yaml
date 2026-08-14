@@ -55,6 +55,10 @@ spec:
               value: "/data/uploads"
             - name: CORS_ORIGIN
               value: "*"
+            - name: OTEL_SERVICE_NAME
+              value: "document-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.observability.svc.cluster.local:4318"
           volumeMounts:
             - name: storage
               mountPath: /data/uploads
