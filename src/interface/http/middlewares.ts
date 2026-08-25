@@ -1,5 +1,6 @@
 import { Context, MiddlewareHandler } from 'hono';
 import { AppError } from '../../domain/errors';
+import { config } from '../../infrastructure/config';
 
 export interface AuthVariables {
   userId: string;
@@ -17,6 +18,16 @@ export function authMiddleware(): MiddlewareHandler<{ Variables: AuthVariables }
 
     c.set('userId', userId);
     c.set('userEmail', userEmail);
+    await next();
+  };
+}
+
+export function internalAuthMiddleware(): MiddlewareHandler {
+  return async (c, next) => {
+    const secret = c.req.header('X-Internal-Secret');
+    if (!secret || secret !== config.INTERNAL_SERVICE_SECRET) {
+      return c.json({ code: 'UNAUTHORIZED', message: 'Servicio no autorizado.' }, 401);
+    }
     await next();
   };
 }

@@ -13,6 +13,7 @@ import { GetFileDownloadUseCase } from './application/use-cases/get-file-downloa
 import { ListFilesUseCase } from './application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from './application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from './application/use-cases/delete-file';
+import { CreateInternalFileUseCase } from './application/use-cases/create-internal-file';
 import { createApp } from './interface/http/app';
 
 async function main(): Promise<void> {
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
       listFiles: new ListFilesUseCase(repos),
       updateMetadata: new UpdateFileMetadataUseCase(uow),
       deleteFile: new DeleteFileUseCase(uow, storage),
+      createInternalFile: new CreateInternalFileUseCase(uow, storage, config.S3_BUCKET),
     },
     corsOrigin: config.CORS_ORIGIN,
   });

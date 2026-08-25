@@ -123,6 +123,10 @@ export class MockStorage implements StoragePort {
     return this.objects.has(key);
   }
 
+  async putObjectDirect(key: string, buffer: Buffer, _contentType: string): Promise<void> {
+    this.objects.set(key, buffer);
+  }
+
   addObject(key: string, data: Buffer): void {
     this.objects.set(key, data);
   }

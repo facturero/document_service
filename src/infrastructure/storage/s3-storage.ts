@@ -122,4 +122,14 @@ export class S3StorageAdapter implements StoragePort {
       return false;
     }
   }
+
+  async putObjectDirect(key: string, buffer: Buffer, contentType: string): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    });
+    await this.client.send(command);
+  }
 }

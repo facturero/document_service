@@ -11,6 +11,7 @@ export interface StoragePort {
   deleteObject(key: string): Promise<void>;
   copyObject(sourceKey: string, destinationKey: string): Promise<void>;
   objectExists(key: string): Promise<boolean>;
+  putObjectDirect(key: string, buffer: Buffer, contentType: string): Promise<void>;
 }
 
 export interface AntivirusPort {

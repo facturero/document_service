@@ -6,6 +6,7 @@ import { GetFileDownloadUseCase } from '../../application/use-cases/get-file-dow
 import { ListFilesUseCase } from '../../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../../application/use-cases/delete-file';
+import { CreateInternalFileUseCase } from '../../application/use-cases/create-internal-file';
 import { AuthVariables } from './middlewares';
 import { ValidationError } from '../../domain/errors';
 
@@ -75,5 +76,38 @@ export function deleteFileController(useCase: DeleteFileUseCase) {
     const fileId = requireParam(c, 'id');
     await useCase.execute(fileId);
     return c.body(null, 204);
+  };
+}
+
+export function createInternalFileController(useCase: CreateInternalFileUseCase) {
+  return async (c: Context) => {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    if (!file || !(file instanceof File)) {
+      return c.json({ code: 'VALIDATION_ERROR', message: 'Campo "file" requerido.' }, 400);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const resourceType = body['resourceType'] as string;
+    const resourceId = body['resourceId'] as string;
+    const category = body['category'] as string;
+    const originalName = body['originalName'] as string || file.name;
+    const mimeType = body['mimeType'] as string || file.type;
+    const uploadedBy = body['uploadedBy'] as string || 'internal';
+
+    if (!resourceType || !resourceId || !category) {
+      return c.json({ code: 'VALIDATION_ERROR', message: 'Campos resourceType, resourceId y category requeridos.' }, 400);
+    }
+
+    const result = await useCase.execute({
+      resourceType,
+      resourceId,
+      category,
+      originalName,
+      mimeType,
+      uploadedBy,
+      buffer,
+    });
+    return c.json(result, 201);
   };
 }

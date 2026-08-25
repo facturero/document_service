@@ -6,7 +6,8 @@ import { GetFileDownloadUseCase } from '../../application/use-cases/get-file-dow
 import { ListFilesUseCase } from '../../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../../application/use-cases/delete-file';
-import { authMiddleware } from './middlewares';
+import { CreateInternalFileUseCase } from '../../application/use-cases/create-internal-file';
+import { authMiddleware, internalAuthMiddleware } from './middlewares';
 import {
   createPresignedController,
   confirmUploadController,
@@ -15,6 +16,7 @@ import {
   listFilesController,
   updateFileMetadataController,
   deleteFileController,
+  createInternalFileController,
 } from './controllers';
 import {
   createPresignedSchema,
@@ -34,6 +36,7 @@ export interface AppDependencies {
     listFiles: ListFilesUseCase;
     updateMetadata: UpdateFileMetadataUseCase;
     deleteFile: DeleteFileUseCase;
+    createInternalFile: CreateInternalFileUseCase;
   };
   corsOrigin: string;
 }
@@ -48,6 +51,7 @@ export function documentRoutes(deps: AppDependencies): Hono {
   const r = new Hono();
   const { useCases } = deps;
 
+  r.post('/files/internal', internalAuthMiddleware(), createInternalFileController(useCases.createInternalFile));
   r.post('/files/presigned', authMiddleware(), validateJson(createPresignedSchema), createPresignedController(useCases.createPresigned));
   r.get('/files', authMiddleware(), validateQuery(listFilesQuerySchema), listFilesController(useCases.listFiles));
   r.get('/files/:id', authMiddleware(), getFileController(useCases.getFile));

@@ -55,4 +55,11 @@ export class LocalStorageAdapter implements StoragePort {
   async objectExists(key: string): Promise<boolean> {
     return existsSync(join(this.basePath, key));
   }
+
+  async putObjectDirect(key: string, buffer: Buffer, _contentType: string): Promise<void> {
+    const filePath = join(this.basePath, key);
+    await mkdir(dirname(filePath), { recursive: true });
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(filePath, buffer);
+  }
 }

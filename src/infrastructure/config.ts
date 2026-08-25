@@ -30,6 +30,8 @@ const schema = z.object({
 
   UPLOAD_MAX_SIZE: z.coerce.number().int().positive().default(104857600),
 
+  INTERNAL_SERVICE_SECRET: z.string().default('dev-internal-secret-change-me'),
+
   CORS_ORIGIN: z.string().default('*'),
 });
 
@@ -64,6 +66,7 @@ export interface AppConfig {
   CLAMAV_HOST: string;
   CLAMAV_PORT: number;
   UPLOAD_MAX_SIZE: number;
+  INTERNAL_SERVICE_SECRET: string;
   CORS_ORIGIN: string;
 }
 
@@ -87,5 +90,6 @@ export const config: AppConfig = {
   CLAMAV_HOST: env.CLAMAV_HOST,
   CLAMAV_PORT: env.CLAMAV_PORT,
   UPLOAD_MAX_SIZE: env.UPLOAD_MAX_SIZE,
+  INTERNAL_SERVICE_SECRET: env.INTERNAL_SERVICE_SECRET,
   CORS_ORIGIN: env.CORS_ORIGIN,
 };
