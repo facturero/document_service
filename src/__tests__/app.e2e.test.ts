@@ -1,9 +1,8 @@
-const _env = vi.hoisted(() => {
+vi.hoisted(() => {
   process.env.DB_HOST = 'localhost';
   process.env.DB_USER = 'test';
   process.env.DB_NAME = 'test-db';
   process.env.NODE_ENV = 'test';
-  return true;
 });
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
