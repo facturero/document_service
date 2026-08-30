@@ -27,6 +27,7 @@ export class S3StorageAdapter implements StoragePort {
     const clientConfig: S3ClientConfig = {
       region: config.region,
       forcePathStyle: config.forcePathStyle,
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     };
 
     if (config.endpoint) {
