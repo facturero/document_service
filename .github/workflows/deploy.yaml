@@ -13,6 +13,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
     steps:
       - name: Checkout
@@ -23,6 +25,9 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+          registry-url: https://npm.pkg.github.com
+          scope: '@facturero'
+          always-auth: true
 
       - name: Install dependencies
         run: npm ci
