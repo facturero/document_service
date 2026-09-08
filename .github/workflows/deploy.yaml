@@ -61,6 +61,8 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            NODE_AUTH_TOKEN=${{ secrets.NODE_AUTH_TOKEN }}
           push: true
 
   deploy:
