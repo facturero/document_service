@@ -38,6 +38,26 @@ export class CreatePresignedUploadUseCase {
 
       await repos.files.save(file);
 
+      // El asyncapi declaraba estos eventos desde el principio, pero el
+      // servicio no publicaba nada: subir o borrar un documento (adjuntos de
+      // facturas incluidos) no dejaba rastro en la bitácora.
+      const fileData = file.toPersistence();
+      await repos.outbox.add({
+        type: 'document.file.upload_requested',
+        aggregateType: 'file',
+        aggregateId: fileData.id,
+        payload: {
+          fileId: fileData.id,
+          resourceType: fileData.resourceType,
+          resourceId: fileData.resourceId,
+          category: fileData.category,
+          originalName: fileData.originalName,
+          status: fileData.status,
+        },
+        occurredAt: new Date(),
+      });
+
+
       return {
         fileId: file.id.value,
         presignedUrl: presigned.url,

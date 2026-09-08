@@ -132,4 +132,32 @@ FileReferenceModel.init(
   },
 );
 
+/** Outbox: mismo esquema que el resto de servicios para que `OutboxRelay` lo
+ *  drene sin configuración especial. Ver migración 20260908000000. */
+export class OutboxModel extends Model<
+  InferAttributes<OutboxModel>,
+  InferCreationAttributes<OutboxModel>
+> {
+  declare id: string;
+  declare aggregate_type: string;
+  declare aggregate_id: string;
+  declare type: string;
+  declare payload: unknown;
+  declare occurred_at: Date;
+  declare processed_at: Date | null;
+}
+
+OutboxModel.init(
+  {
+    id: { type: DataTypes.CHAR(36), primaryKey: true },
+    aggregate_type: { type: DataTypes.STRING(50), allowNull: false },
+    aggregate_id: { type: DataTypes.CHAR(36), allowNull: false },
+    type: { type: DataTypes.STRING(100), allowNull: false },
+    payload: { type: DataTypes.JSON, allowNull: false },
+    occurred_at: { type: DataTypes.DATE, allowNull: false },
+    processed_at: { type: DataTypes.DATE, allowNull: true },
+  },
+  { sequelize, tableName: 'outbox_messages', timestamps: false },
+);
+
 export type { Model } from 'sequelize';

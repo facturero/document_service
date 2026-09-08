@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ListFilesUseCase } from '../application/use-cases/list-files';
 import { FileReference } from '../domain/entities';
-import { InMemoryUnitOfWork } from './helpers';
+import { InMemoryUnitOfWork, readOnlyRepositories } from './helpers';
 
 describe('ListFilesUseCase', () => {
   let uow: InMemoryUnitOfWork;
@@ -9,7 +9,7 @@ describe('ListFilesUseCase', () => {
 
   beforeEach(() => {
     uow = new InMemoryUnitOfWork();
-    useCase = new ListFilesUseCase({ files: uow.files });
+    useCase = new ListFilesUseCase(readOnlyRepositories(uow.files));
   });
 
   it('returns empty list when no files exist', async () => {

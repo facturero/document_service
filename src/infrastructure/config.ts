@@ -25,6 +25,11 @@ const schema = z.object({
     .default('true')
     .transform((v) => v === 'true' || v === '1'),
 
+  // Sin esto el OutboxRelay no arranca y los eventos de fichero se quedan en
+  // `outbox_messages` sin publicar (opcional para no romper despliegues que
+  // aún no tengan el secret).
+  RABBITMQ_URL: z.string().optional(),
+
   CLAMAV_HOST: z.string().default('localhost'),
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
 
@@ -63,6 +68,7 @@ export interface AppConfig {
   S3_ACCESS_KEY_ID: string;
   S3_SECRET_ACCESS_KEY: string;
   S3_FORCE_PATH_STYLE: boolean;
+  RABBITMQ_URL?: string;
   CLAMAV_HOST: string;
   CLAMAV_PORT: number;
   UPLOAD_MAX_SIZE: number;
@@ -87,6 +93,7 @@ export const config: AppConfig = {
   S3_ACCESS_KEY_ID: env.S3_ACCESS_KEY_ID,
   S3_SECRET_ACCESS_KEY: env.S3_SECRET_ACCESS_KEY,
   S3_FORCE_PATH_STYLE: env.S3_FORCE_PATH_STYLE,
+  RABBITMQ_URL: env.RABBITMQ_URL,
   CLAMAV_HOST: env.CLAMAV_HOST,
   CLAMAV_PORT: env.CLAMAV_PORT,
   UPLOAD_MAX_SIZE: env.UPLOAD_MAX_SIZE,

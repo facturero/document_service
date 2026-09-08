@@ -1,5 +1,6 @@
 import './infrastructure/telemetry/otel';
 import { serve } from '@hono/node-server';
+import { OutboxRelay } from '@facturero/outbox-relay';
 import { config } from './infrastructure/config';
 import { sequelize } from './infrastructure/persistence/sequelize';
 import './infrastructure/persistence/models';
@@ -52,6 +53,20 @@ async function main(): Promise<void> {
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
     console.log(`document-service escuchando en http://localhost:${info.port}`);
   });
+
+  // Publica los eventos de fichero que hasta ahora solo existían en el
+  // asyncapi.yaml. Mismo patrón que el resto de servicios.
+  if (config.RABBITMQ_URL) {
+    const relay = new OutboxRelay({
+      sequelize,
+      rabbitmqUrl: config.RABBITMQ_URL,
+      exchange: 'crm.events',
+    });
+    await relay.start();
+    console.log('[messaging] outbox relay iniciado');
+  } else {
+    console.log('[messaging] RABBITMQ_URL no configurado, outbox relay desactivado');
+  }
 }
 
 main().catch((e) => {

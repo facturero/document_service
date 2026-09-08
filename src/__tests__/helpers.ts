@@ -1,5 +1,5 @@
 import { FileReference } from '../domain/entities';
-import { FileReferenceRepository, Repositories } from '../domain/repositories';
+import { DomainEvent, FileReferenceRepository, Repositories } from '../domain/repositories';
 import { StoragePort, PresignedUrlInfo, UnitOfWork } from '../application/ports';
 
 export class InMemoryFileRepository implements FileReferenceRepository {
@@ -80,18 +80,39 @@ export class InMemoryFileRepository implements FileReferenceRepository {
 
 export class InMemoryUnitOfWork implements UnitOfWork {
   readonly files: InMemoryFileRepository;
+  /** Eventos publicados durante el test: permite asertar que cada mutación
+   *  deja su rastro para la bitácora de auditoría. */
+  readonly events: DomainEvent[] = [];
 
   constructor(files?: InMemoryFileRepository) {
     this.files = files ?? new InMemoryFileRepository();
   }
 
   async execute<T>(work: (repos: Repositories) => Promise<T>): Promise<T> {
-    return work({ files: this.files });
+    return work({
+      files: this.files,
+      outbox: {
+        add: async (event: DomainEvent) => {
+          this.events.push(event);
+        },
+      },
+    });
   }
 
   clear(): void {
     this.files.clear();
+    this.events.length = 0;
   }
+}
+
+/** `Repositories` completo para los casos de uso de solo lectura, que reciben
+ *  el objeto directamente en vez de pasar por la UnitOfWork. Evita repetir el
+ *  outbox vacío en cada test. */
+export function readOnlyRepositories(files: InMemoryFileRepository): Repositories {
+  return {
+    files,
+    outbox: { add: async () => undefined },
+  };
 }
 
 export class MockStorage implements StoragePort {

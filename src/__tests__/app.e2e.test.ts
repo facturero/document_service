@@ -16,7 +16,7 @@ import { ListFilesUseCase } from '../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../application/use-cases/delete-file';
 import { CreateInternalFileUseCase } from '../application/use-cases/create-internal-file';
-import { InMemoryUnitOfWork, MockStorage } from './helpers';
+import { InMemoryUnitOfWork, MockStorage , readOnlyRepositories } from './helpers';
 
 type Json = Record<string, unknown>;
 
@@ -28,9 +28,9 @@ function buildTestApp() {
     useCases: {
       createPresigned: new CreatePresignedUploadUseCase(uow, storage, 'cmr-documents'),
       confirmUpload: new ConfirmFileUploadUseCase(uow),
-      getFile: new GetFileUseCase({ files: uow.files }),
-      getFileDownload: new GetFileDownloadUseCase({ files: uow.files }, storage),
-      listFiles: new ListFilesUseCase({ files: uow.files }),
+      getFile: new GetFileUseCase(readOnlyRepositories(uow.files)),
+      getFileDownload: new GetFileDownloadUseCase(readOnlyRepositories(uow.files), storage),
+      listFiles: new ListFilesUseCase(readOnlyRepositories(uow.files)),
       updateMetadata: new UpdateFileMetadataUseCase(uow),
       deleteFile: new DeleteFileUseCase(uow, storage),
       createInternalFile: new CreateInternalFileUseCase(uow, storage, 'cmr-documents'),

@@ -22,6 +22,26 @@ export class ConfirmFileUploadUseCase {
       const confirmed = file.confirm(input.checksum);
       await repos.files.save(confirmed);
 
+      // El asyncapi declaraba estos eventos desde el principio, pero el
+      // servicio no publicaba nada: subir o borrar un documento (adjuntos de
+      // facturas incluidos) no dejaba rastro en la bitácora.
+      const confirmedData = confirmed.toPersistence();
+      await repos.outbox.add({
+        type: 'document.file.attached',
+        aggregateType: 'file',
+        aggregateId: confirmedData.id,
+        payload: {
+          fileId: confirmedData.id,
+          resourceType: confirmedData.resourceType,
+          resourceId: confirmedData.resourceId,
+          category: confirmedData.category,
+          originalName: confirmedData.originalName,
+          status: confirmedData.status,
+        },
+        occurredAt: new Date(),
+      });
+
+
       return this.toResponse(confirmed);
     });
   }

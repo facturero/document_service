@@ -11,6 +11,22 @@ export interface FileReferenceRepository {
   sumSizeByResource(resourceType: string, resourceId: string): Promise<number>;
 }
 
+/** Evento de dominio a publicar. Mismo contrato que el resto de servicios: se
+ *  escribe en `outbox_messages` dentro de la MISMA transacción que el cambio,
+ *  y `OutboxRelay` lo publica en `crm.events`. */
+export interface DomainEvent {
+  type: string;
+  aggregateType: string;
+  aggregateId: string;
+  payload: Record<string, unknown>;
+  occurredAt: Date;
+}
+
+export interface OutboxRepository {
+  add(event: DomainEvent): Promise<void>;
+}
+
 export interface Repositories {
   files: FileReferenceRepository;
+  outbox: OutboxRepository;
 }

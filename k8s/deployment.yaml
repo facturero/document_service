@@ -73,6 +73,14 @@ spec:
               value: "true"
             - name: CORS_ORIGIN
               value: "https://crm.noahsolution.com"
+            # Sin esto el OutboxRelay no arranca y los eventos de fichero se
+            # quedan sin publicar. El secret lo crea el operador, igual que en
+            # el resto de servicios (`<servicio>-rabbitmq` / key `url`).
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: document-rabbitmq
+                  key: url
             - name: OTEL_SERVICE_NAME
               value: "document-service"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

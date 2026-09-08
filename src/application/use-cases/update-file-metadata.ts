@@ -23,6 +23,26 @@ export class UpdateFileMetadataUseCase {
 
       await repos.files.save(updated);
 
+      // El asyncapi declaraba estos eventos desde el principio, pero el
+      // servicio no publicaba nada: subir o borrar un documento (adjuntos de
+      // facturas incluidos) no dejaba rastro en la bitácora.
+      const updatedData = updated.toPersistence();
+      await repos.outbox.add({
+        type: 'document.file.metadata_updated',
+        aggregateType: 'file',
+        aggregateId: updatedData.id,
+        payload: {
+          fileId: updatedData.id,
+          resourceType: updatedData.resourceType,
+          resourceId: updatedData.resourceId,
+          category: updatedData.category,
+          originalName: updatedData.originalName,
+          status: updatedData.status,
+        },
+        occurredAt: new Date(),
+      });
+
+
       return this.toResponse(updated);
     });
   }

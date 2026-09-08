@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { Transaction, Op } from 'sequelize';
+import { withActor } from '@facturero/outbox-relay';
 import { FileReference } from '../../domain/entities';
-import { FileReferenceRepository, Repositories } from '../../domain/repositories';
-import { FileReferenceModel } from './models';
+import { DomainEvent, FileReferenceRepository, Repositories } from '../../domain/repositories';
+import { FileReferenceModel, OutboxModel } from './models';
 import { sequelize } from './sequelize';
 
 function toDomain(model: FileReferenceModel): FileReference {
@@ -119,9 +121,31 @@ export function fileReferenceRepository(tx?: Transaction): FileReferenceReposito
   };
 }
 
+function outboxRepository(tx?: Transaction) {
+  return {
+    async add(event: DomainEvent): Promise<void> {
+      await OutboxModel.create(
+        {
+          id: randomUUID(),
+          aggregate_type: event.aggregateType,
+          aggregate_id: event.aggregateId,
+          type: event.type,
+          // Inyecta actor/ip/request-id del contexto de la petición, igual que
+          // el resto de servicios, para que la bitácora sepa quién actuó.
+          payload: withActor(event.payload),
+          occurred_at: event.occurredAt,
+          processed_at: null,
+        },
+        { transaction: tx },
+      );
+    },
+  };
+}
+
 export function buildRepositories(tx?: Transaction): Repositories {
   return {
     files: fileReferenceRepository(tx),
+    outbox: outboxRepository(tx),
   };
 }
 

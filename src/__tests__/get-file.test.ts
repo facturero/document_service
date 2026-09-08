@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GetFileUseCase } from '../application/use-cases/get-file';
 import { FileReference } from '../domain/entities';
-import { InMemoryUnitOfWork } from './helpers';
+import { InMemoryUnitOfWork , readOnlyRepositories } from './helpers';
 import { FileNotFoundError } from '../domain/errors';
 
 describe('GetFileUseCase', () => {
@@ -10,7 +10,7 @@ describe('GetFileUseCase', () => {
 
   beforeEach(() => {
     uow = new InMemoryUnitOfWork();
-    useCase = new GetFileUseCase({ files: uow.files });
+    useCase = new GetFileUseCase(readOnlyRepositories(uow.files));
   });
 
   it('returns file metadata by id', async () => {

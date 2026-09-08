@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GetFileDownloadUseCase } from '../application/use-cases/get-file-download';
 import { FileReference } from '../domain/entities';
-import { InMemoryUnitOfWork, MockStorage } from './helpers';
+import { InMemoryUnitOfWork, MockStorage , readOnlyRepositories } from './helpers';
 import { FileNotFoundError, FileIsQuarantinedError } from '../domain/errors';
 
 describe('GetFileDownloadUseCase', () => {
@@ -12,7 +12,7 @@ describe('GetFileDownloadUseCase', () => {
   beforeEach(() => {
     uow = new InMemoryUnitOfWork();
     storage = new MockStorage();
-    useCase = new GetFileDownloadUseCase({ files: uow.files }, storage);
+    useCase = new GetFileDownloadUseCase(readOnlyRepositories(uow.files), storage);
   });
 
   it('returns download URL for confirmed file', async () => {
