@@ -14,6 +14,43 @@ spec:
       labels:
         app: document-service
     spec:
+      initContainers:
+        - name: document-migrate
+          image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          securityContext:
+            runAsUser: 0
+          command:
+            - sh
+            - -c
+            - "npx sequelize-cli db:migrate"
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: port
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: password
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: document-db
+                  key: name
       containers:
         - name: document-service
           image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
