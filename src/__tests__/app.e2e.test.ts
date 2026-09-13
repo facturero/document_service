@@ -12,6 +12,8 @@ import { CreatePresignedUploadUseCase } from '../application/use-cases/create-pr
 import { ConfirmFileUploadUseCase } from '../application/use-cases/confirm-file-upload';
 import { GetFileUseCase } from '../application/use-cases/get-file';
 import { GetFileDownloadUseCase } from '../application/use-cases/get-file-download';
+import { GetFileContentUseCase } from '../application/use-cases/get-file-content';
+import { FileReference } from '../domain/entities';
 import { ListFilesUseCase } from '../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../application/use-cases/delete-file';
@@ -30,6 +32,7 @@ function buildTestApp() {
       confirmUpload: new ConfirmFileUploadUseCase(uow),
       getFile: new GetFileUseCase(readOnlyRepositories(uow.files)),
       getFileDownload: new GetFileDownloadUseCase(readOnlyRepositories(uow.files), storage),
+      getFileContent: new GetFileContentUseCase(readOnlyRepositories(uow.files), storage),
       listFiles: new ListFilesUseCase(readOnlyRepositories(uow.files)),
       updateMetadata: new UpdateFileMetadataUseCase(uow),
       deleteFile: new DeleteFileUseCase(uow, storage),
@@ -189,6 +192,36 @@ describe('E2E: Document API', () => {
     it('returns 404 for nonexistent file', async () => {
       const { status } = await t.del('/files/00000000-0000-0000-0000-000000000000');
       expect(status).toBe(404);
+    });
+  });
+
+  describe('GET /files/:id/content (interno)', () => {
+    async function storedCertificate() {
+      const file = FileReference.create({
+        resourceType: 'fiscal_certificate', resourceId: 'org-1', category: 'certificado',
+        originalName: 'firma.p12', mimeType: 'application/x-pkcs12', size: 3,
+        storageKey: 'fiscal_certificate/org-1/firma.p12', storageBucket: 'cmr-documents',
+        checksum: '', description: null, expiresAt: null, parentId: null, uploadedBy: 'fiscal-ecuador',
+      });
+      await t.uow.files.save(file);
+      await t.storage.putObjectDirect(file.storageKey, Buffer.from([7, 8, 9]), 'application/x-pkcs12');
+      return file;
+    }
+
+    it('con el secreto interno devuelve los bytes, sin redirigir', async () => {
+      const file = await storedCertificate();
+      const res = await t.app.fetch(new Request(`http://localhost/files/${file.id.value}/content`, {
+        headers: { 'X-Internal-Secret': 'dev-internal-secret-change-me' },
+      }));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('application/x-pkcs12');
+      expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([7, 8, 9]);
+    });
+
+    it('sin el secreto no entrega nada: es un certificado', async () => {
+      const file = await storedCertificate();
+      const res = await t.app.fetch(new Request(`http://localhost/files/${file.id.value}/content`));
+      expect(res.status).toBe(401);
     });
   });
 

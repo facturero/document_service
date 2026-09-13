@@ -70,4 +70,28 @@ describe('GetFileDownloadUseCase', () => {
       useCase.execute(file.id.value),
     ).rejects.toThrow(FileIsQuarantinedError);
   });
+
+  /**
+   * La ruta es pública (la interfaz pinta imágenes con <img src> sin token). Los
+   * archivos fiscales no pueden salir por aquí: con solo el id se obtenía un
+   * enlace firmado al .p12 de la firma electrónica de una empresa.
+   */
+  describe('archivos fiscales', () => {
+    const fiscalFile = (resourceType: string, mimeType: string) => FileReference.create({
+      resourceType, resourceId: 'org-1', category: 'certificado', originalName: 'firma.p12', mimeType,
+      size: 1, storageKey: `${resourceType}/firma`, storageBucket: 'bucket', checksum: '',
+      description: null, expiresAt: null, parentId: null, uploadedBy: 'fiscal-ecuador',
+    });
+
+    it.each([
+      ['un certificado de firma', 'fiscal_certificate', 'application/x-pkcs12'],
+      ['un comprobante fiscal', 'fiscal_invoice', 'application/xml'],
+      ['un .p12 con cualquier tipo de recurso', 'customer', 'application/x-pkcs12'],
+    ])('%s no sale por la descarga pública y responde como si no existiera', async (_name, resourceType, mimeType) => {
+      const file = fiscalFile(resourceType, mimeType);
+      await uow.files.save(file.confirm('checksum'));
+
+      await expect(useCase.execute(file.id.value)).rejects.toThrow(FileNotFoundError);
+    });
+  });
 });

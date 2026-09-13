@@ -11,6 +11,7 @@ import { CreatePresignedUploadUseCase } from './application/use-cases/create-pre
 import { ConfirmFileUploadUseCase } from './application/use-cases/confirm-file-upload';
 import { GetFileUseCase } from './application/use-cases/get-file';
 import { GetFileDownloadUseCase } from './application/use-cases/get-file-download';
+import { GetFileContentUseCase } from './application/use-cases/get-file-content';
 import { ListFilesUseCase } from './application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from './application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from './application/use-cases/delete-file';
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
       confirmUpload: new ConfirmFileUploadUseCase(uow),
       getFile: new GetFileUseCase(repos),
       getFileDownload: new GetFileDownloadUseCase(repos, storage),
+      getFileContent: new GetFileContentUseCase(repos, storage),
       listFiles: new ListFilesUseCase(repos),
       updateMetadata: new UpdateFileMetadataUseCase(uow),
       deleteFile: new DeleteFileUseCase(uow, storage),

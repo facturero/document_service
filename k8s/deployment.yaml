@@ -106,6 +106,15 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
+            # Valida X-Internal-Secret de las rutas internas (/files/internal,
+            # /files/:id/content). Sin esta variable usaba el valor de
+            # desarrollo del repo, y billing/auth/organization, que mandan el
+            # real, recibían 401. Mismo secret que todos los que lo llaman.
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: internal-service-secret
+                  key: value
             - name: S3_FORCE_PATH_STYLE
               value: "true"
             - name: CORS_ORIGIN

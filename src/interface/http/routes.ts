@@ -3,6 +3,7 @@ import { CreatePresignedUploadUseCase } from '../../application/use-cases/create
 import { ConfirmFileUploadUseCase } from '../../application/use-cases/confirm-file-upload';
 import { GetFileUseCase } from '../../application/use-cases/get-file';
 import { GetFileDownloadUseCase } from '../../application/use-cases/get-file-download';
+import { GetFileContentUseCase } from '../../application/use-cases/get-file-content';
 import { ListFilesUseCase } from '../../application/use-cases/list-files';
 import { UpdateFileMetadataUseCase } from '../../application/use-cases/update-file-metadata';
 import { DeleteFileUseCase } from '../../application/use-cases/delete-file';
@@ -13,6 +14,7 @@ import {
   confirmUploadController,
   getFileController,
   getFileDownloadController,
+  getFileContentController,
   listFilesController,
   updateFileMetadataController,
   deleteFileController,
@@ -33,6 +35,7 @@ export interface AppDependencies {
     confirmUpload: ConfirmFileUploadUseCase;
     getFile: GetFileUseCase;
     getFileDownload: GetFileDownloadUseCase;
+    getFileContent: GetFileContentUseCase;
     listFiles: ListFilesUseCase;
     updateMetadata: UpdateFileMetadataUseCase;
     deleteFile: DeleteFileUseCase;
@@ -56,6 +59,9 @@ export function documentRoutes(deps: AppDependencies): Hono {
   r.get('/files', authMiddleware(), validateQuery(listFilesQuerySchema), listFilesController(useCases.listFiles));
   r.get('/files/:id', authMiddleware(), getFileController(useCases.getFile));
   r.get('/files/:id/download', getFileDownloadController(useCases.getFileDownload));
+  // Solo para servicios internos (secreto compartido): los bytes, sin redirigir
+  // a la URL pública del almacenamiento. Ver GetFileContentUseCase.
+  r.get('/files/:id/content', internalAuthMiddleware(), getFileContentController(useCases.getFileContent));
   r.patch('/files/:id/confirm', authMiddleware(), validateJson(confirmUploadSchema), confirmUploadController(useCases.confirmUpload));
   r.patch('/files/:id', authMiddleware(), validateJson(updateMetadataSchema), updateFileMetadataController(useCases.updateMetadata));
   r.delete('/files/:id', authMiddleware(), deleteFileController(useCases.deleteFile));
