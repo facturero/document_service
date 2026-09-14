@@ -5,6 +5,8 @@ import { config } from '../../infrastructure/config';
 export interface AuthVariables {
   userId: string;
   userEmail: string;
+  /** La pone el gateway desde el token; null si el usuario aún no tiene organización. */
+  organizationId: string | null;
 }
 
 export function authMiddleware(): MiddlewareHandler<{ Variables: AuthVariables }> {
@@ -18,6 +20,7 @@ export function authMiddleware(): MiddlewareHandler<{ Variables: AuthVariables }
 
     c.set('userId', userId);
     c.set('userEmail', userEmail);
+    c.set('organizationId', c.req.header('X-Organization-Id') || null);
     await next();
   };
 }

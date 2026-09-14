@@ -10,8 +10,15 @@ import { DeleteFileUseCase } from '../../application/use-cases/delete-file';
 import { CreateInternalFileUseCase } from '../../application/use-cases/create-internal-file';
 import { AuthVariables } from './middlewares';
 import { ValidationError } from '../../domain/errors';
+import type { FileActor } from '../../domain/file-access';
 
 type Auth = { Variables: AuthVariables };
+
+/** Quién pide el archivo, para acotar a su organización (ver domain/file-access.ts). */
+function actorOf(c: Context): FileActor {
+  const { userId, organizationId } = c.var as Auth['Variables'];
+  return { userId, organizationId: organizationId ?? null };
+}
 
 function requireParam(c: Context, name: string): string {
   const value = c.req.param(name);
@@ -24,8 +31,8 @@ function requireParam(c: Context, name: string): string {
 export function createPresignedController(useCase: CreatePresignedUploadUseCase) {
   return async (c: Context) => {
     const body = c.req.valid('json' as never) as any;
-    const { userId } = c.var as Auth['Variables'];
-    const result = await useCase.execute({ ...body, uploadedBy: userId });
+    const { userId, organizationId } = c.var as Auth['Variables'];
+    const result = await useCase.execute({ ...body, uploadedBy: userId, organizationId: organizationId ?? null });
     return c.json(result, 201);
   };
 }
@@ -34,7 +41,7 @@ export function confirmUploadController(useCase: ConfirmFileUploadUseCase) {
   return async (c: Context) => {
     const fileId = requireParam(c, 'id');
     const body = c.req.valid('json' as never) as any;
-    const result = await useCase.execute({ fileId, checksum: body.checksum });
+    const result = await useCase.execute({ fileId, checksum: body.checksum }, actorOf(c));
     return c.json(result, 200);
   };
 }
@@ -42,7 +49,7 @@ export function confirmUploadController(useCase: ConfirmFileUploadUseCase) {
 export function getFileController(useCase: GetFileUseCase) {
   return async (c: Context) => {
     const fileId = requireParam(c, 'id');
-    const result = await useCase.execute(fileId);
+    const result = await useCase.execute(fileId, actorOf(c));
     return c.json(result, 200);
   };
 }
@@ -50,8 +57,22 @@ export function getFileController(useCase: GetFileUseCase) {
 export function getFileDownloadController(useCase: GetFileDownloadUseCase) {
   return async (c: Context) => {
     const fileId = requireParam(c, 'id');
-    const result = await useCase.execute(fileId);
+    const result = await useCase.execute(fileId, actorOf(c));
     return c.redirect(result.url, 302);
+  };
+}
+
+/**
+ * El enlace firmado del almacenamiento, en JSON. Es lo que usa la interfaz: pide
+ * el enlace con su token y lo pone en <img src> o lo abre. Así la descarga exige
+ * sesión sin que el navegador tenga que seguir una redirección con cabeceras a
+ * otro origen (MinIO), que chocaría con CORS.
+ */
+export function getFileUrlController(useCase: GetFileDownloadUseCase) {
+  return async (c: Context) => {
+    const fileId = requireParam(c, 'id');
+    const result = await useCase.execute(fileId, actorOf(c));
+    return c.json({ url: result.url, originalName: result.originalName, mimeType: result.mimeType }, 200);
   };
 }
 
@@ -72,7 +93,7 @@ export function getFileContentController(useCase: GetFileContentUseCase) {
 export function listFilesController(useCase: ListFilesUseCase) {
   return async (c: Context) => {
     const query = c.req.valid('query' as never) as any;
-    const result = await useCase.execute(query.resourceType, query.resourceId, query.category);
+    const result = await useCase.execute(query.resourceType, query.resourceId, query.category, actorOf(c));
     return c.json(result, 200);
   };
 }
@@ -81,7 +102,7 @@ export function updateFileMetadataController(useCase: UpdateFileMetadataUseCase)
   return async (c: Context) => {
     const fileId = requireParam(c, 'id');
     const body = c.req.valid('json' as never) as any;
-    const result = await useCase.execute(fileId, body);
+    const result = await useCase.execute(fileId, body, actorOf(c));
     return c.json(result, 200);
   };
 }
@@ -89,7 +110,7 @@ export function updateFileMetadataController(useCase: UpdateFileMetadataUseCase)
 export function deleteFileController(useCase: DeleteFileUseCase) {
   return async (c: Context) => {
     const fileId = requireParam(c, 'id');
-    await useCase.execute(fileId);
+    await useCase.execute(fileId, actorOf(c));
     return c.body(null, 204);
   };
 }
@@ -109,6 +130,7 @@ export function createInternalFileController(useCase: CreateInternalFileUseCase)
     const originalName = body['originalName'] as string || file.name;
     const mimeType = body['mimeType'] as string || file.type;
     const uploadedBy = body['uploadedBy'] as string || 'internal';
+    const organizationId = (body['organizationId'] as string) || null;
 
     if (!resourceType || !resourceId || !category) {
       return c.json({ code: 'VALIDATION_ERROR', message: 'Campos resourceType, resourceId y category requeridos.' }, 400);
@@ -121,6 +143,7 @@ export function createInternalFileController(useCase: CreateInternalFileUseCase)
       originalName,
       mimeType,
       uploadedBy,
+      organizationId,
       buffer,
     });
     return c.json(result, 201);

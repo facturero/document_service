@@ -16,6 +16,8 @@ export interface FileReferenceData {
   expiresAt: Date | null;
   parentId: string | null;
   uploadedBy: string;
+  /** Organización que lo subió; null en archivos anteriores a guardarla. */
+  organizationId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +38,7 @@ export class FileReference {
   readonly expiresAt: Date | null;
   readonly parentId: string | null;
   readonly uploadedBy: string;
+  readonly organizationId: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -55,14 +58,18 @@ export class FileReference {
     this.expiresAt = data.expiresAt;
     this.parentId = data.parentId;
     this.uploadedBy = data.uploadedBy;
+    this.organizationId = data.organizationId ?? null;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
 
-  static create(data: Omit<FileReferenceData, 'id' | 'status' | 'createdAt' | 'updatedAt'>): FileReference {
+  static create(
+    data: Omit<FileReferenceData, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'organizationId'> & { organizationId?: string | null },
+  ): FileReference {
     const now = new Date();
     return new FileReference({
       ...data,
+      organizationId: data.organizationId ?? null,
       id: FileId.generate().value,
       status: FileStatus.PENDING,
       createdAt: now,
@@ -137,6 +144,7 @@ export class FileReference {
       expiresAt: this.expiresAt,
       parentId: this.parentId,
       uploadedBy: this.uploadedBy,
+      organizationId: this.organizationId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

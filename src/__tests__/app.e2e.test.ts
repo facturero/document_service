@@ -195,6 +195,84 @@ describe('E2E: Document API', () => {
     });
   });
 
+  /** FACTURACION-BRECHAS.md, N13: cada organización solo ve sus archivos. */
+  describe('aislamiento por organización', () => {
+    const as = (org: string | null, user = 'user-a') => ({
+      'X-User-Id': user,
+      'X-User-Email': `${user}@example.com`,
+      ...(org ? { 'X-Organization-Id': org } : {}),
+    });
+
+    async function uploadAs(org: string, body: Record<string, unknown> = {}) {
+      const res = await t.request('POST', '/files/presigned', {
+        headers: as(org),
+        body: { resourceType: 'product', resourceId: 'p1', category: 'foto', originalName: 'foto.png', mimeType: 'image/png', size: 10, ...body },
+      });
+      return res.json!.fileId as string;
+    }
+
+    it('la organización dueña lo ve, lo lista, obtiene su enlace y lo descarga', async () => {
+      const id = await uploadAs('org-a');
+      expect((await t.request('GET', `/files/${id}`, { headers: as('org-a') })).status).toBe(200);
+      expect((await t.request('GET', '/files?resourceType=product&resourceId=p1', { headers: as('org-a') })).json!.total).toBe(1);
+      const url = await t.request('GET', `/files/${id}/url`, { headers: as('org-a') });
+      expect(url.status).toBe(200);
+      expect(url.json).toMatchObject({ url: expect.stringMatching(/^https?:\/\//), mimeType: 'image/png' });
+      const download = await t.app.fetch(new Request(`http://localhost/files/${id}/download`, { headers: as('org-a') }));
+      expect(download.status).toBe(302);
+    });
+
+    it('otra organización no lo ve, no lo lista, no lo descarga, no lo modifica ni lo borra', async () => {
+      const id = await uploadAs('org-a');
+      const other = as('org-b', 'user-b');
+      expect((await t.request('GET', `/files/${id}`, { headers: other })).status).toBe(404);
+      expect((await t.request('GET', '/files?resourceType=product&resourceId=p1', { headers: other })).json!.total).toBe(0);
+      expect((await t.request('GET', `/files/${id}/url`, { headers: other })).status).toBe(404);
+      expect((await t.app.fetch(new Request(`http://localhost/files/${id}/download`, { headers: other }))).status).toBe(404);
+      expect((await t.request('PATCH', `/files/${id}`, { headers: other, body: { description: 'mío' } })).status).toBe(404);
+      expect((await t.request('DELETE', `/files/${id}`, { headers: other })).status).toBe(404);
+      // Sigue intacto para su dueña.
+      expect((await t.request('GET', `/files/${id}`, { headers: as('org-a') })).status).toBe(200);
+    });
+
+    it('sin sesión no hay descarga ni enlace', async () => {
+      const id = await uploadAs('org-a');
+      expect((await t.app.fetch(new Request(`http://localhost/files/${id}/download`))).status).toBe(401);
+      expect((await t.app.fetch(new Request(`http://localhost/files/${id}/url`))).status).toBe(401);
+    });
+
+    it('el avatar propio se ve desde cualquier organización a la que se pertenezca', async () => {
+      const id = await uploadAs('org-a', { resourceType: 'user', resourceId: 'user-a', category: 'avatar' });
+      expect((await t.request('GET', `/files/${id}/url`, { headers: as('org-b', 'user-a') })).status).toBe(200);
+      expect((await t.request('GET', `/files/${id}/url`, { headers: as('org-b', 'user-b') })).status).toBe(404);
+    });
+
+    it('un archivo anterior a guardar la organización sigue accesible con sesión', async () => {
+      const legacy = FileReference.create({
+        resourceType: 'customer', resourceId: 'c-legacy', category: 'logo', originalName: 'logo.png', mimeType: 'image/png',
+        size: 1, storageKey: 'customer/c-legacy/logo.png', storageBucket: 'cmr-documents', checksum: '', description: null,
+        expiresAt: null, parentId: null, uploadedBy: 'antiguo',
+      });
+      await t.uow.files.save(legacy);
+      expect((await t.request('GET', `/files/${legacy.id.value}/url`, { headers: as('org-z') })).status).toBe(200);
+    });
+
+    it('un servicio interno puede fijar la organización del archivo que sube', async () => {
+      const form = new FormData();
+      form.append('resourceType', 'invoice');
+      form.append('resourceId', 'inv-1');
+      form.append('category', 'comprobante');
+      form.append('organizationId', 'org-a');
+      form.append('file', new Blob([Buffer.from('%PDF')], { type: 'application/pdf' }), 'factura.pdf');
+      const res = await t.app.fetch(new Request('http://localhost/files/internal', {
+        method: 'POST', headers: { 'X-Internal-Secret': 'dev-internal-secret-change-me' }, body: form,
+      }));
+      const id = ((await res.json()) as Json).id as string;
+      expect((await t.request('GET', `/files/${id}/url`, { headers: as('org-a') })).status).toBe(200);
+      expect((await t.request('GET', `/files/${id}/url`, { headers: as('org-b', 'user-b') })).status).toBe(404);
+    });
+  });
+
   describe('GET /files/:id/content (interno)', () => {
     async function storedCertificate() {
       const file = FileReference.create({

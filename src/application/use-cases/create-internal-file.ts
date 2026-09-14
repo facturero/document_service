@@ -37,6 +37,8 @@ export class CreateInternalFileUseCase {
     originalName: string;
     mimeType: string;
     uploadedBy: string;
+    /** Organización dueña; los servicios la mandan para que la descarga quede acotada a ella. */
+    organizationId?: string | null;
     buffer: Buffer;
   }): Promise<FileResponse> {
     return this.uow.execute(async (repos) => {
@@ -59,6 +61,7 @@ export class CreateInternalFileUseCase {
         expiresAt: null,
         parentId: null,
         uploadedBy: input.uploadedBy,
+        organizationId: input.organizationId ?? null,
       });
       file = file.confirm(checksum);
 

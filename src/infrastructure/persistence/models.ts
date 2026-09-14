@@ -17,6 +17,7 @@ export class FileReferenceModel extends Model<InferAttributes<FileReferenceModel
   declare expiresAt: Date | null;
   declare parentId: string | null;
   declare uploadedBy: string;
+  declare organizationId: string | null;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -94,6 +95,11 @@ FileReferenceModel.init(
       type: DataTypes.STRING(100),
       allowNull: false,
       field: 'uploaded_by',
+    },
+    organizationId: {
+      type: DataTypes.CHAR(36),
+      allowNull: true,
+      field: 'organization_id',
     },
     createdAt: {
       type: DataTypes.DATE,

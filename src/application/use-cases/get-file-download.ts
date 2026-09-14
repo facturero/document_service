@@ -1,6 +1,7 @@
 import { FileNotFoundError, FileIsQuarantinedError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { StoragePort } from '../ports';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export interface DownloadResult {
   url: string;
@@ -31,10 +32,11 @@ export class GetFileDownloadUseCase {
     private readonly storage: StoragePort,
   ) {}
 
-  async execute(fileId: string): Promise<DownloadResult> {
+  async execute(fileId: string, actor?: FileActor): Promise<DownloadResult> {
     const file = await this.repos.files.findById(fileId);
-    // Un archivo privado responde igual que uno inexistente: no se confirma que exista.
-    if (!file || isPrivateFile(file)) {
+    // Un archivo privado, o de otra organización, responde igual que uno
+    // inexistente: no se confirma que exista.
+    if (!file || isPrivateFile(file) || (actor && !canAccessFile(file, actor))) {
       throw new FileNotFoundError(fileId);
     }
     if (file.status.isQuarantined()) {

@@ -14,6 +14,7 @@ import {
   confirmUploadController,
   getFileController,
   getFileDownloadController,
+  getFileUrlController,
   getFileContentController,
   listFilesController,
   updateFileMetadataController,
@@ -58,7 +59,9 @@ export function documentRoutes(deps: AppDependencies): Hono {
   r.post('/files/presigned', authMiddleware(), validateJson(createPresignedSchema), createPresignedController(useCases.createPresigned));
   r.get('/files', authMiddleware(), validateQuery(listFilesQuerySchema), listFilesController(useCases.listFiles));
   r.get('/files/:id', authMiddleware(), getFileController(useCases.getFile));
-  r.get('/files/:id/download', getFileDownloadController(useCases.getFileDownload));
+  // Con sesión y acotadas a la organización (antes la descarga era anónima). Ver domain/file-access.ts.
+  r.get('/files/:id/download', authMiddleware(), getFileDownloadController(useCases.getFileDownload));
+  r.get('/files/:id/url', authMiddleware(), getFileUrlController(useCases.getFileDownload));
   // Solo para servicios internos (secreto compartido): los bytes, sin redirigir
   // a la URL pública del almacenamiento. Ver GetFileContentUseCase.
   r.get('/files/:id/content', internalAuthMiddleware(), getFileContentController(useCases.getFileContent));

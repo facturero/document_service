@@ -38,6 +38,8 @@ export interface CreateFilePresignedInput {
   description?: string;
   expiresAt?: string;
   uploadedBy: string;
+  /** Organización de quien sube (cabecera del gateway). */
+  organizationId?: string | null;
 }
 
 export interface ConfirmFileUploadInput {

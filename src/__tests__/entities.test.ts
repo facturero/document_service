@@ -72,6 +72,7 @@ describe('FileReference', () => {
         expiresAt: null,
         parentId: null,
         uploadedBy: 'user-2',
+        organizationId: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -98,6 +99,7 @@ describe('FileReference', () => {
         expiresAt: new Date('2027-06-30T23:59:59Z'),
         parentId: 'parent-uuid-here',
         uploadedBy: 'user-3',
+        organizationId: 'org-1',
         createdAt: now,
         updatedAt: now,
       };

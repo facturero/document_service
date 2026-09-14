@@ -23,6 +23,7 @@ function toDomain(model: FileReferenceModel): FileReference {
     expiresAt: model.expiresAt,
     parentId: model.parentId,
     uploadedBy: model.uploadedBy,
+    organizationId: model.organizationId ?? null,
     createdAt: model.createdAt,
     updatedAt: model.updatedAt,
   });
@@ -86,6 +87,7 @@ export function fileReferenceRepository(tx?: Transaction): FileReferenceReposito
           expiresAt: data.expiresAt,
           parentId: data.parentId,
           uploadedBy: data.uploadedBy,
+          organizationId: data.organizationId,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         },

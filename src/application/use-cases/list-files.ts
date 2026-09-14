@@ -1,11 +1,13 @@
 import { Repositories } from '../../domain/repositories';
 import { FileListResponse, FileResponse } from '../dtos';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export class ListFilesUseCase {
   constructor(private readonly repos: Repositories) {}
 
-  async execute(resourceType: string, resourceId: string, category?: string): Promise<FileListResponse> {
-    const files = await this.repos.files.findByResource(resourceType, resourceId, category);
+  async execute(resourceType: string, resourceId: string, category?: string, actor?: FileActor): Promise<FileListResponse> {
+    const found = await this.repos.files.findByResource(resourceType, resourceId, category);
+    const files = actor ? found.filter((f) => canAccessFile(f, actor)) : found;
     return {
       files: files.map(this.toResponse),
       total: files.length,

@@ -28,6 +28,7 @@ export class CreatePresignedUploadUseCase {
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
         parentId: null,
         uploadedBy: input.uploadedBy,
+        organizationId: input.organizationId ?? null,
       });
 
       const presigned = await this.storage.generatePresignedUploadUrl(

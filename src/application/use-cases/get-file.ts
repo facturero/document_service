@@ -1,13 +1,14 @@
 import { FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { FileResponse } from '../dtos';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export class GetFileUseCase {
   constructor(private readonly repos: Repositories) {}
 
-  async execute(fileId: string): Promise<FileResponse> {
+  async execute(fileId: string, actor?: FileActor): Promise<FileResponse> {
     const file = await this.repos.files.findById(fileId);
-    if (!file) {
+    if (!file || (actor && !canAccessFile(file, actor))) {
       throw new FileNotFoundError(fileId);
     }
     return this.toResponse(file);

@@ -1,6 +1,7 @@
 import { FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { StoragePort, UnitOfWork } from '../ports';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export class DeleteFileUseCase {
   constructor(
@@ -8,10 +9,10 @@ export class DeleteFileUseCase {
     private readonly storage: StoragePort,
   ) {}
 
-  async execute(fileId: string): Promise<void> {
+  async execute(fileId: string, actor?: FileActor): Promise<void> {
     return this.uow.execute(async (repos: Repositories) => {
       const file = await repos.files.findById(fileId);
-      if (!file) {
+      if (!file || (actor && !canAccessFile(file, actor))) {
         throw new FileNotFoundError(fileId);
       }
 

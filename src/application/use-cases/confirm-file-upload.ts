@@ -2,16 +2,17 @@ import { FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { UnitOfWork } from '../ports';
 import { ConfirmFileUploadInput, FileResponse } from '../dtos';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export class ConfirmFileUploadUseCase {
   constructor(
     private readonly uow: UnitOfWork,
   ) {}
 
-  async execute(input: ConfirmFileUploadInput): Promise<FileResponse> {
+  async execute(input: ConfirmFileUploadInput, actor?: FileActor): Promise<FileResponse> {
     return this.uow.execute(async (repos: Repositories) => {
       const file = await repos.files.findById(input.fileId);
-      if (!file) {
+      if (!file || (actor && !canAccessFile(file, actor))) {
         throw new FileNotFoundError(input.fileId);
       }
 

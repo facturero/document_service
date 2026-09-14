@@ -2,16 +2,17 @@ import { FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { UnitOfWork } from '../ports';
 import { UpdateFileMetadataInput, FileResponse } from '../dtos';
+import { canAccessFile, FileActor } from '../../domain/file-access';
 
 export class UpdateFileMetadataUseCase {
   constructor(
     private readonly uow: UnitOfWork,
   ) {}
 
-  async execute(fileId: string, input: UpdateFileMetadataInput): Promise<FileResponse> {
+  async execute(fileId: string, input: UpdateFileMetadataInput, actor?: FileActor): Promise<FileResponse> {
     return this.uow.execute(async (repos: Repositories) => {
       const file = await repos.files.findById(fileId);
-      if (!file) {
+      if (!file || (actor && !canAccessFile(file, actor))) {
         throw new FileNotFoundError(fileId);
       }
 
