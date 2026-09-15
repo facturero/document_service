@@ -23,7 +23,8 @@ async function main(): Promise<void> {
   await sequelize.sync();
 
   const repos = buildRepositories();
-  const uow = new SequelizeUnitOfWork();
+  let relay: OutboxRelay | undefined;
+  const uow = new SequelizeUnitOfWork((tx) => relay?.attachToTransaction(tx));
 
   const storage = config.STORAGE_DRIVER === 's3'
     ? new S3StorageAdapter({
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
   // Publica los eventos de fichero que hasta ahora solo existían en el
   // asyncapi.yaml. Mismo patrón que el resto de servicios.
   if (config.RABBITMQ_URL) {
-    const relay = new OutboxRelay({
+    relay = new OutboxRelay({
       sequelize,
       rabbitmqUrl: config.RABBITMQ_URL,
       exchange: 'crm.events',
