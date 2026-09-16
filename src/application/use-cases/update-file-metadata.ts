@@ -1,8 +1,8 @@
-import { FileNotFoundError } from '../../domain/errors';
+import { FileIsImmutableError, FileNotFoundError } from '../../domain/errors';
 import { Repositories } from '../../domain/repositories';
 import { UnitOfWork } from '../ports';
 import { UpdateFileMetadataInput, FileResponse } from '../dtos';
-import { canAccessFile, FileActor } from '../../domain/file-access';
+import { canAccessFile, FileActor, isImmutableFile } from '../../domain/file-access';
 
 export class UpdateFileMetadataUseCase {
   constructor(
@@ -14,6 +14,10 @@ export class UpdateFileMetadataUseCase {
       const file = await repos.files.findById(fileId);
       if (!file || (actor && !canAccessFile(file, actor))) {
         throw new FileNotFoundError(fileId);
+      }
+      // Cambiar la categoría bastaría para sacarlo de `isImmutableFile` y luego borrarlo.
+      if (isImmutableFile(file)) {
+        throw new FileIsImmutableError(fileId);
       }
 
       const updated = file.updateMetadata({

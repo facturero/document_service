@@ -131,3 +131,12 @@ export class QuotaExceededError extends AppError {
     super('Cuota de almacenamiento excedida.');
   }
 }
+
+export class FileIsImmutableError extends AppError {
+  readonly code = 'FILE_IMMUTABLE';
+  readonly httpStatus = 409;
+
+  constructor(fileId: string) {
+    super(`El archivo es un documento fiscal o comprobante y no se puede borrar ni modificar: ${fileId}`);
+  }
+}
