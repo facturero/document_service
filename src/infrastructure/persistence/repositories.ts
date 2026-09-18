@@ -45,6 +45,9 @@ export function fileReferenceRepository(tx?: Transaction): FileReferenceReposito
         where,
         transaction: tx,
         order: [['createdAt', 'DESC']],
+        // Cota defensiva: nunca traer sin límite los archivos de un recurso.
+        // Un recurso normal tiene pocos; el tope evita un findAll ilimitado.
+        limit: 500,
       });
       return models.map(toDomain);
     },
