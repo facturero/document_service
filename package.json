@@ -18,7 +18,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
-    "@facturero/outbox-relay": "^0.2.2",
+    "@facturero/outbox-relay": "^0.2.3",
     "@hono/node-server": "^1.19.14",
     "@hono/otel": "^1.1.2",
     "@hono/zod-validator": "^0.4.1",
