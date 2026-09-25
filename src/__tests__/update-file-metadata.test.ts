@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { UpdateFileMetadataUseCase } from '../application/use-cases/update-file-metadata';
 import { FileReference } from '../domain/entities';
 import { InMemoryUnitOfWork } from './helpers';
-import { FileNotFoundError } from '../domain/errors';
+import { FileIsImmutableError, FileNotFoundError } from '../domain/errors';
 
 describe('UpdateFileMetadataUseCase', () => {
   let uow: InMemoryUnitOfWork;
@@ -86,5 +86,32 @@ describe('UpdateFileMetadataUseCase', () => {
     await expect(
       useCase.execute('00000000-0000-0000-0000-000000000000', { description: 'test' }),
     ).rejects.toThrow(FileNotFoundError);
+  });
+
+  it('no deja cambiar la categoría de un XML fiscal (sería la vía para luego borrarlo)', async () => {
+    const file = FileReference.create({
+      resourceType: 'fiscal_invoice',
+      resourceId: 'fi-1',
+      category: 'xml',
+      originalName: 'autorizado.xml',
+      mimeType: 'application/xml',
+      size: 1024,
+      storageKey: 'key',
+      storageBucket: 'bucket',
+      checksum: '',
+      description: null,
+      expiresAt: null,
+      parentId: null,
+      uploadedBy: 'user-1',
+      organizationId: 'org-1',
+    });
+    await uow.files.save(file);
+
+    await expect(
+      useCase.execute(file.id.value, { category: 'otra' }, { userId: 'user-1', organizationId: 'org-1' }),
+    ).rejects.toThrow(FileIsImmutableError);
+
+    const saved = await uow.files.findById(file.id.value);
+    expect(saved!.category).toBe('xml');
   });
 });
