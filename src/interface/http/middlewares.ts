@@ -1,4 +1,5 @@
 import { Context, MiddlewareHandler } from 'hono';
+import { runWithActor } from '@facturero/outbox-relay';
 import { AppError } from '../../domain/errors';
 import { config } from '../../infrastructure/config';
 
@@ -21,7 +22,17 @@ export function authMiddleware(): MiddlewareHandler<{ Variables: AuthVariables }
     c.set('userId', userId);
     c.set('userEmail', userEmail);
     c.set('organizationId', c.req.header('X-Organization-Id') || null);
-    await next();
+    // El repositorio del outbox llama a `withActor`, pero sin este contexto no hay actor que añadir: todos los eventos
+    // de archivos (subir, adjuntar, borrar) llegaban a la bitácora sin usuario, correo ni IP.
+    await runWithActor(
+      {
+        actorId: userId,
+        actorEmail: userEmail,
+        actorIp: c.req.header('X-Client-Ip') || null,
+        requestId: c.req.header('X-Request-Id') || null,
+      },
+      () => next(),
+    );
   };
 }
 
