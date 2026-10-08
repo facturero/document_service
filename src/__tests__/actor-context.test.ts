@@ -1,4 +1,12 @@
-import { describe, expect, it } from 'vitest';
+// El middleware importa la configuración, que exige variables de entorno (en CI no hay .env).
+vi.hoisted(() => {
+  process.env.DB_HOST = 'localhost';
+  process.env.DB_USER = 'test';
+  process.env.DB_NAME = 'test-db';
+  process.env.NODE_ENV = 'test';
+});
+
+import { describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
 import { getActor } from '@facturero/outbox-relay';
 import { authMiddleware } from '../interface/http/middlewares';
