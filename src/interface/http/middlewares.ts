@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Context, MiddlewareHandler } from 'hono';
 import { runWithActor } from '@facturero/outbox-relay';
 import { AppError } from '../../domain/errors';
@@ -36,10 +37,17 @@ export function authMiddleware(): MiddlewareHandler<{ Variables: AuthVariables }
   };
 }
 
+/** Compara en tiempo constante (sobre los hashes, para no filtrar la longitud). */
+function secretsMatch(provided: string, expected: string): boolean {
+  const a = createHash('sha256').update(provided).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
 export function internalAuthMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const secret = c.req.header('X-Internal-Secret');
-    if (!secret || secret !== config.INTERNAL_SERVICE_SECRET) {
+    if (!secret || !secretsMatch(secret, config.INTERNAL_SERVICE_SECRET)) {
       return c.json({ code: 'UNAUTHORIZED', message: 'Servicio no autorizado.' }, 401);
     }
     await next();

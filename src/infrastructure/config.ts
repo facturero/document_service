@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+const DEV_INTERNAL_SECRET = 'dev-internal-secret-change-me';
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3003),
@@ -35,9 +37,20 @@ const schema = z.object({
 
   UPLOAD_MAX_SIZE: z.coerce.number().int().positive().default(104857600),
 
-  INTERNAL_SERVICE_SECRET: z.string().default('dev-internal-secret-change-me'),
+  INTERNAL_SERVICE_SECRET: z.string().default(DEV_INTERNAL_SECRET),
 
   CORS_ORIGIN: z.string().default('*'),
+}).superRefine((env, ctx) => {
+  // El valor de desarrollo está en el repo: con él, las rutas internas
+  // (contenido de cualquier fichero, incluidos los .p12 de firma) quedan
+  // abiertas para cualquiera que alcance el servicio.
+  if (env.NODE_ENV === 'production' && env.INTERNAL_SERVICE_SECRET === DEV_INTERNAL_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['INTERNAL_SERVICE_SECRET'],
+      message: 'tiene el valor de desarrollo; en producción debe venir del secret internal-service-secret',
+    });
+  }
 });
 
 const parsed = schema.safeParse(process.env);
