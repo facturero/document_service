@@ -24,6 +24,18 @@ export function canAccessFile(
   return actor.organizationId !== null && file.organizationId === actor.organizationId;
 }
 
+/**
+ * Recursos cuyos archivos no se listan por `GET /files` (rutas de usuario). Los adjuntos del chat cuelgan de la conversación, y el id de
+ * un mensaje directo o de un canal privado lo ve más gente que sus miembros (la bitácora de auditoría guarda la creación). Listarlos
+ * por ese id dejaría a cualquiera de la empresa ver los archivos de una conversación ajena (chat-service, IMPLEMENTATION.md, regla de
+ * privacidad). El enlace a cada archivo solo va dentro del mensaje, que chat-service entrega a los miembros.
+ */
+const UNLISTED_RESOURCE_TYPES = new Set(['chat_conversation']);
+
+export function isUnlistedResource(resourceType: string): boolean {
+  return UNLISTED_RESOURCE_TYPES.has(resourceType);
+}
+
 const PRIVATE_RESOURCE_TYPES = new Set(['fiscal_certificate', 'fiscal_invoice']);
 const PRIVATE_MIME_TYPES = new Set(['application/x-pkcs12']);
 

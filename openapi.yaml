@@ -76,7 +76,9 @@ paths:
       summary: Listar archivos de un recurso
       description: |
         Retorna los metadatos de todos los archivos asociados a un recurso,
-        filtrados opcionalmente por categoría.
+        filtrados opcionalmente por categoría. Los adjuntos del chat
+        (`resourceType: chat_conversation`) nunca se listan: devuelve vacío
+        (el enlace a cada uno solo va dentro del mensaje, que ven sus miembros).
       operationId: listFiles
       tags: [Archivos]
       security:

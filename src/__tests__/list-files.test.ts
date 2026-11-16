@@ -12,6 +12,29 @@ describe('ListFilesUseCase', () => {
     useCase = new ListFilesUseCase(readOnlyRepositories(uow.files));
   });
 
+  it('no lista los adjuntos de una conversación del chat por la ruta de usuario (privacidad de DMs y canales privados)', async () => {
+    const file = FileReference.create({
+      resourceType: 'chat_conversation',
+      resourceId: 'conv-1',
+      category: 'attachment',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      size: 10,
+      storageKey: 'k',
+      storageBucket: 'bucket',
+      checksum: '',
+      description: null,
+      expiresAt: null,
+      parentId: null,
+      uploadedBy: 'user-1',
+    });
+    await uow.files.save(file);
+    const asUser = await useCase.execute('chat_conversation', 'conv-1', undefined, { userId: 'user-2', organizationId: null });
+    expect(asUser.total).toBe(0);
+    // Sin actor (uso interno) sigue listando.
+    expect((await useCase.execute('chat_conversation', 'conv-1')).total).toBe(1);
+  });
+
   it('returns empty list when no files exist', async () => {
     const result = await useCase.execute('customer', 'c123');
     expect(result.files).toHaveLength(0);

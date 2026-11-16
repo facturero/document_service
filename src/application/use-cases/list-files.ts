@@ -1,11 +1,13 @@
 import { Repositories } from '../../domain/repositories';
 import { FileListResponse, FileResponse } from '../dtos';
-import { canAccessFile, FileActor } from '../../domain/file-access';
+import { canAccessFile, FileActor, isUnlistedResource } from '../../domain/file-access';
 
 export class ListFilesUseCase {
   constructor(private readonly repos: Repositories) {}
 
   async execute(resourceType: string, resourceId: string, category?: string, actor?: FileActor): Promise<FileListResponse> {
+    // Con actor = ruta de usuario. Los internos (sin actor) sí listan.
+    if (actor && isUnlistedResource(resourceType)) return { files: [], total: 0 };
     const found = await this.repos.files.findByResource(resourceType, resourceId, category);
     const files = actor ? found.filter((f) => canAccessFile(f, actor)) : found;
     return {
