@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 # Necesario desde que el servicio depende de @facturero/outbox-relay (paquete
 # privado en GitHub Packages). Mismo patrón que el resto de servicios: el
 # .npmrc se escribe para el `npm ci` y se borra en la misma capa, para que el
@@ -13,7 +13,7 @@ COPY tsconfig.json ./
 COPY src/ src/
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:24-alpine
 ARG NODE_AUTH_TOKEN
 WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
